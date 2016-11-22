@@ -16,16 +16,22 @@ rhs2 <- function(b, mydata) {
 }
 
 rhsfit <- function(b, mydata) {
-  #ydat ~ P25*exp((c-ha)/(8.314*tdat)
-  sum((mydata$y - ((b[1]*exp( ((b[2]/(8.314*298.15)) - b[2]) /(8.314*mydata$x)) ))) ^2)
+  #ydat ~ P25*exp((ha/(8.314*298.15)) - ha/(8.314*tdat))
+  sum((mydata$y - (b[1]*exp((b[2]/(8.314*298.15)) - b[2] /(8.314*mydata$x)) ) )^2)
 }
 
+rhsfit2 <- function(b, mydata) {
+  #(P25*exp( (log(1 + exp((S*298.15-hd)/(8.314*298.15))) + (ha/(8.314*298.15))) 
+   #         - (ha/(8.314*tdat)))) / (1 + exp((S*tdat-hd)/(8.312*tdat)));
+  sum((mydata$y - (  (b[1]*exp(( log(1+ exp((b[3]*298.15-b[4])/(8.314*298.15))) + (b[2]/(8.314*298.15)) 
+                               - (b[2]/(8.314*tdat)))) / (1 + exp((b[3]*tdat-b[4])/(8.314*tdat)))  )) )^2)
+}
 
 optima = function(start1, w, fc)
 {
   ## Optim
   w.optx <- optimx(par=start1, fn=fc, mydata=w, 
-                   control=list(all.methods=TRUE, save.failures=TRUE, maxit=2500))
+                   control=list(all.methods=TRUE, save.failures=TRUE, maxit=10000))
   return(w.optx)
 }
   
@@ -80,7 +86,20 @@ searchOutlier = function(data)
 }
 
 
+eqFitcl1 = function(tdat)
+{
+  start= c(P25 = 0, ha=38000);
+  eunsc = ydat ~ P25*exp((ha/(8.314*298.15)) - ha/(8.314*tdat));
+  
+}
 
+eqFitcl2 = function(tdat)
+{
+  start= c(P25 = 10, ha=20000, S=800, hd=258000);
+  eunsc = ydat ~ (P25*exp( (log(1 + exp((S*298.15-hd)/(8.314*298.15))) + (ha/(8.314*298.15))) 
+                             - (ha/(8.314*tdat)))) / (1 + exp((S*tdat-hd)/(8.312*tdat)));
+  
+}
 
 # Equation 1
 eqFit = function(x,y)
@@ -90,19 +109,30 @@ eqFit = function(x,y)
   #mx = max(y); mn=min(y); mm=0;
   tdat = x;
   ydat = y;
-  start2= c(P25 = 0.0, ha=20000);
+  
+  
+  
   weeddata = data.frame(y=ydat, x=tdat);
   searchOutlier(weeddata);
   tdat = weeddata$x ;
   ydat = weeddata$y;
-  optx = optima(start2, weeddata, rhsfit);
+  optx1 = optima(start1, weeddata, rhsfit);
+  optx1
+  
+  optx = optima(start2, weeddata, rhsfit2);
   optx
-  eunsc10 = ydat ~ P25*exp((  (ha/(8.314*298.15)) - ha)/(8.314*tdat));
-  o = nlsLM(eunsc10, 
-            start=list(P25 = optx$P25[1], ha = optx$ha[1]), trace = TRUE);
+  
+
+  o1= nlsLM(eunsc10, 
+            start=list(P25 = optx1$P25[1], ha = optx1$ha[1]), trace = TRUE);
+  o1
+  
+  o = nlsLM(eunsc12, 
+            start=list(P25 = optx$P25[1], ha = optx$ha[1], S = optx$S[1], hd = optx$hd[1]), trace = TRUE);
   o
   plot(tdat, ydat);
-  lines(tdat, fitted(o), col = 2, lwd = 2);
+  lines(tdat, fitted(o1), col = 2, lwd = 2);
+  
   return(r)
 }
 
