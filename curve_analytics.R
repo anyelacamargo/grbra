@@ -39,11 +39,12 @@ optima = function(start1, w, fc)
   
 plotCurve = function(x,y, fm, eq, yl, spc, tempr, repl)
 {
-  plot(x, y, main = paste('eq: ', eq, sep = ''), ylab = yl,
+  plot(x, y, ylab = yl,
        xlab = 'PHOTOSYNTHETIC PHOTON FLUX DENSITY', cex.axis=0.7);
   lines(x, fm, col = 2, lwd = 2);
   text(max(x)/2, max(y)/2, paste('specie: ', spc,
-    '\ntemp:', tempr, '\n',  'rep:', repl, sep=''), cex = 0.9);
+    '\ntemp:', tempr, '\n',  'rep:', repl, '\n', 
+    'eq:', eq, sep=''), cex = 0.9);
 }
 
 
@@ -132,7 +133,7 @@ getlogistic = function(x, y)
   return(i);
 }
 # Equation 1
-eqFit = function(xp,yp)
+eqFit = function(xp, yp, param)
 {
   r = list()
   i = getlogistic(xp, yp);
@@ -143,10 +144,11 @@ eqFit = function(xp,yp)
   r$o2 = eqFitcl2(tdat, ydat, weeddata);
   
   
-  k = min(ydat) + (min(ydat)/3);
-  plot(tdat, ydat);
-  lines(tdat, fitted(r$o1), col = 'red', lwd = 2);
-  lines(tdat, fitted(r$o2), col = 'blue', lwd = 2);
+  k = min(ydat) + (min(ydat)/2);
+  plot(tdat, ydat, main = paste('Arrhenius equations\' curves, param: ', param, sep=''),
+       cex=0.8, cex.axis=0.8);
+  lines(tdat, fitted(r$o1), col = 'red', lwd = 2, cex=0.8, cex.axis=0.8);
+  lines(tdat, fitted(r$o2), col = 'blue', lwd = 2, cex=0.8, cex.axis=0.8);
   legend(290,k, legend = c('eq1', 'eq2'), col=c('red', 'blue'), lty=1);
   r$ydat = ydat;
   return(r)
@@ -226,6 +228,39 @@ convert2factor = function(data, variable_list)
   return(copydata)
 }
 
+# ArrheniusFit Calculations
+ArrheniusFit = function(b)
+{
+  # Pgmax
+  x = b$tk; y = b$Pgmax;
+  m = eqFit(x,y, 'Pgmax');
+  m1 = data.frame(summary(m$o2)$parameters);
+  # lo
+  x = b$tk; y = b$lo;
+  m = eqFit(x,y, 'lo');
+  m2 = data.frame(summary(m$o2)$parameters);
+  # RD
+  x = b$tk; y = b$RD;
+  m = eqFit(x,y, 'RD');
+  m3 = data.frame(summary(m$o2)$parameters);
+  
+  mf = cbind(Pgmax=m1$Estimate, lo=m2$Estimate, RD=m3$Estimate);
+  rownames(mf) = rownames(m1);
+  return(mf)
+}
+
+# Process data from curve fitting
+processCurveParam = function(b)
+{
+  
+  b = convert2numeric(data.frame(b), c("eq","rep","lo","Pgmax","RD","temperature"));
+  b = getPar(b, 'temperature');
+  b = data.frame(b);
+  b = b[order(b$tk),];
+  b$RD = -1*(b$RD);
+  return(b);
+}
+
 r = read.table('merge_data.csv', header=TRUE, sep=',');
 r$I = as.numeric(as.character(r$I));
 r = r[complete.cases(r),];
@@ -233,9 +268,8 @@ row.names(r) = 1:nrow(r);
 b = c();
 
 
-
-#pdf('curves.pdf');
-#par(mfrow=c(2,2));
+pdf('curves.pdf');
+par(mfrow=c(2,2));
 for(sp in unique(r$specie)[1])
 {
   sub = r[which(r$specie == sp),];
@@ -251,33 +285,11 @@ for(sp in unique(r$specie)[1])
     }
   }
 }
+
+
+b = processCurveParam(b);
+m = ArrheniusFit(b);
+dev.off();
 break();
-#dev.off()
 
-b = convert2numeric(data.frame(b), c("eq","rep","lo","Pgmax","RD","temperature"));
-b = getPar(b, 'temperature');
-b = data.frame(b);
-b = b[order(b$tk),];
-b$RD = -1*(b$RD);
-# Pgmax
-x = b$tk; y = b$Pgmax;
-m = eqFit(x,y);
-# lo
-x = b$tk; y = b$lo;
-m = eqFit(x,y);
-# RD
-x = b$tk; y = -1*(b$RD);
-m = eqFit(x,y);
-
-fname = paste('gr_param', '.pdf', sep='');
-pdf(fname);
-for(tname in c('lo', 'Pgmax', 'RD'))
-{
-  print(xyplot(round(as.numeric(b[[tname]])) ~ 
-                 b[['temperature']] | b[['specie']], data=b, ylab=tname, xlab = 'temperature'));
-}
-dev.off()
-
-ggplot(b, aes(x=temperature, y = round(RD) )) + 
-       geom_point() + facet_wrap("area") 
        
