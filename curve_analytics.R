@@ -40,7 +40,7 @@ optima = function(start1, w, fc)
 plotCurve = function(x,y, fm, eq, yl, spc, tempr, repl)
 {
   plot(x, y, ylab = yl,
-       xlab = 'PHOTOSYNTHETIC PHOTON FLUX DENSITY', cex.axis=0.7);
+       xlab = 'PHOTOSYNTHETIC PHOTON FLUX DENSITY', cex.axis=0.7, cex.lab=0.6);
   lines(x, fm, col = 2, lwd = 2);
   text(max(x)/2, max(y)/2, paste('specie: ', spc,
     '\ntemp:', tempr, '\n',  'rep:', repl, '\n', 
@@ -146,10 +146,12 @@ eqFit = function(xp, yp, param)
   
   k = min(ydat) + (min(ydat)/2);
   plot(tdat, ydat, main = paste('Arrhenius equations\' curves, param: ', param, sep=''),
-       cex=0.8, cex.axis=0.8);
+       cex=0.8, cex.axis=0.8, cex.lab=0.6);
   lines(tdat, fitted(r$o1), col = 'red', lwd = 2, cex=0.8, cex.axis=0.8);
   lines(tdat, fitted(r$o2), col = 'blue', lwd = 2, cex=0.8, cex.axis=0.8);
-  legend(290,k, legend = c('eq1', 'eq2'), col=c('red', 'blue'), lty=1);
+  legend(290,k, legend = c(paste('eq1, cor=',round(cor(tdat, fitted(r$o1)), 3), sep=''), 
+                           paste('eq2, cor=',round(cor(tdat, fitted(r$o2)), 3), sep='')), 
+         col=c('red', 'blue'), lty=1, cex=0.8);
   r$ydat = ydat;
   return(r)
 }
@@ -228,6 +230,43 @@ convert2factor = function(data, variable_list)
   return(copydata)
 }
 
+#Equations to fit curve to temp
+eqFitc = function(type, vl)
+{
+  v1 = 8.314;
+  v2 = 298.15;
+  if(type == 2)
+  {
+    return(log(1 + exp((vl[['S']]*v2-vl[['hd']])/(v1*v2))) +
+           (vl[['ha']]/(v1*v2)));
+  }
+  if(type == 1)
+  {
+    return(vl[['ha']]/(v1*v2));
+  }
+  else
+    print('unknown parameter')
+}
+
+eqEstimate = function(t, vl, tp)
+{
+  print
+  v1 = 8.314;
+  v2 = 273.15;
+  if(tp == 'Pgmax' | tp == 'RD')
+  {
+    return(exp((vl[['c']] - (vl[['ha']]) / (v1*(t + v2))) / 
+           (1 + exp((vl[['S']]*(t + v2) - vl[['hd']]) / (v1*(t+v2)))))); 
+  }
+  if(tp == 'lo')
+  {
+    return(exp((vl[['c']]-(vl[['ha']])/(v1*(t+v2)))));
+  }
+  else
+    print('unknown variable')
+  
+}
+
 # ArrheniusFit Calculations
 ArrheniusFit = function(b)
 {
@@ -238,7 +277,7 @@ ArrheniusFit = function(b)
   # lo
   x = b$tk; y = b$lo;
   m = eqFit(x,y, 'lo');
-  m2 = data.frame(summary(m$o2)$parameters);
+  m2 = data.frame(summary(m$o1)$parameters);
   # RD
   x = b$tk; y = b$RD;
   m = eqFit(x,y, 'RD');
@@ -246,6 +285,7 @@ ArrheniusFit = function(b)
   
   mf = cbind(Pgmax=m1$Estimate, lo=m2$Estimate, RD=m3$Estimate);
   rownames(mf) = rownames(m1);
+  mf = rbind(mf, c=c(eqFitc(2, mf[,'Pgmax']),eqFitc(1, mf[,'lo']), eqFitc(2, mf[,'RD'])));
   return(mf)
 }
 
@@ -260,6 +300,75 @@ processCurveParam = function(b)
   b$RD = -1*(b$RD);
   return(b);
 }
+
+
+calculateEstimates = function(m, b)
+{
+  b = data.frame(b, PgmaxAdj = sapply(b$temperature, function(x) eqEstimate(x, m[,'Pgmax'], 'Pgmax')));
+  b = data.frame(b, loAdj = sapply(b$temperature, function(x) eqEstimate(x, m[,'lo'], 'lo')));
+  b = data.frame(b, RDAdj = sapply(b$temperature, function(x) eqEstimate(x, m[,'RD'], 'RD')));
+  return(b);
+  
+}
+
+calculateEstimatesTemp = function(b)
+{
+  b = data.frame(b, PgmaxTemp = sapply(as.numeric(rownames(b)), function(x)  
+    b[['Pgmax']][x]/b[['PgmaxAdj']][x]));
+  b = data.frame(b, loTemp = sapply(as.numeric(rownames(b)), function(x)  
+    b[['lo']][x]/b[['loAdj']][x]));
+  b = data.frame(b, RDTemp = sapply(as.numeric(rownames(b)), function(x)  
+    b[['RD']][x]/b[['RDAdj']][x]));
+  b = data.frame(b, Icom = sapply(as.numeric(rownames(b)), function(x)  
+    (b[['RDTemp']][x] * b[['PgmaxTemp']][x]) / 
+      (b[['loTemp']][x] * (b[['PgmaxTemp']][x] - b[['RDTemp']][x]))));
+  
+
+  return(b);
+  
+}
+
+calculateEstimatesTempIsat = function(b, I)
+{
+  b = data.frame(b, Isat = sapply(as.numeric(rownames(b)), function(x)
+    (b[['RDTemp']][x] * b[['PgmaxTemp']][x] * (I-1)-I* (b[['PgmaxTemp']][x]^2)) /
+      (b[['loTemp']][x] * (b[['PgmaxTemp']][x]*(I-1) + b[['RDTemp']][x]*(I-0.5)))));
+  i = which(colnames(b) == 'Isat');
+  colnames(b)[i] = paste('Isat', (I*100),sep='')
+  return(b)
+
+}
+
+
+calculateEstimatesTempQuantYield = function(b)
+{
+  b = data.frame(b, oIcomp = sapply(as.numeric(rownames(b)), function(x)
+    (b[['loTemp']][x]*(b[['PgmaxTemp']][x]^2)) / ((b[['loTemp']][x] * b[['Icom']][x] + 
+                                                    b[['PgmaxTemp']][x])^2)))
+    return(b);
+}
+
+
+plotSelNetTemp = function(vl, sub, t)
+{
+  k =((vl[['loTemp']] *  sub$I * vl[['PgmaxTemp']]) / (vl[['loTemp']] *  sub$I + vl[['PgmaxTemp']])) 
+  - vl[['RDTemp']];
+  plot(sub$I, k, xlab='PHOTOSYNTHETIC PHOTON FLUX DENSITY [mmol (photons) m-2 s-1]
+', ylab='NET PHOTOSYNTHESIS RATE', type='l',col='red', main = paste('temperature = ', t, sep =''),
+       cex.axis=0.8, cex.lab=0.6);
+  
+}
+
+plotSelQuaTemp = function(vl, sub, t)
+{
+  k =(vl[['loTemp']] *  (vl[['PgmaxTemp']] ^2)) / 
+        ((vl[['loTemp']] *  sub$I * vl[['PgmaxTemp']])^2);
+  plot(sub$I, k, xlab='PHOTOSYNTHETIC PHOTON FLUX DENSITY [mmol (photons) m-2 s-1]
+', ylab='QUANTUM YIELD', type='l', col='red', main = paste('temperature = ', t, sep =''), 
+       cex.axis=0.8, cex.lab=0.6);
+  
+}
+
 
 r = read.table('merge_data.csv', header=TRUE, sep=',');
 r$I = as.numeric(as.character(r$I));
@@ -289,7 +398,20 @@ for(sp in unique(r$specie)[1])
 
 b = processCurveParam(b);
 m = ArrheniusFit(b);
+b = calculateEstimates(m, b);
+b = calculateEstimatesTemp(b);
+b = calculateEstimatesTempIsat(b, 0.50);
+b = calculateEstimatesTempIsat(b, 0.85);
+b = calculateEstimatesTempIsat(b, 0.90);
+b = calculateEstimatesTempIsat(b, 0.95);
+b = calculateEstimatesTempQuantYield(b);
+
+
+plotSelNetTemp(b[1,], sub2, 25);
+plotSelQuaTemp(b[1,], sub2, 25);
 dev.off();
 break();
+
+write.table(b, file='results_curvefitting.csv', sep=',');
 
        
