@@ -1,9 +1,9 @@
-library('minpack.lm')
-library("nlmrt")
-library("optimx")
+library(minpack.lm)
+library(nlmrt)
+library(optimx)
 library(ggplot2)
-library('nlstools')
-library('nlme')
+library(nlstools)
+library(nlme)
 
 source('../senescence_disease/generic.R')
 
