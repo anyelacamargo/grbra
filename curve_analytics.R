@@ -38,7 +38,8 @@ optima <- function(start1, w, fc)
 {
   ## Optim
   w.optx <- optimx(par=start1, fn=fc, mydata=w, 
-                   control=list(all.methods=TRUE, save.failures=TRUE, maxit=10000))
+                   control=list(all.methods=TRUE, save.failures=TRUE, 
+                                maxit=10000))
   return(w.optx)
 }
   
@@ -100,28 +101,29 @@ eqFitcl1 <- function(tdat, ydat, weeddata)
   o <- list()
   weeddata <- data.frame(y=ydat, x=tdat)
   o$start<- c(P25 = 0, ha=38000)
-  o$eunsc = ydat ~ P25*exp((ha/(8.314*298.15)) - ha/(8.314*tdat))
-  o$optx1 = optima(o$start, weeddata, rhsfit1)
-  o1= nlsLM(o$eunsc, 
+  o$eunsc <- ydat ~ P25*exp((ha/(8.314*298.15)) - ha/(8.314*tdat))
+  o$optx1 <- optima(o$start, weeddata, rhsfit1)
+  o1<- nlsLM(o$eunsc, 
               start=list(P25 = o$optx1$P25[1], ha = o$optx1$ha[1]), trace = TRUE)
   return(o1)
 }
 
 eqFitcl2 <- function(tdat, ydat, weeddata)
 {
-  o = list()
-  o$start= c(P25 = 10, ha=20000, S=800, hd=258000)
-  o$eunsc = ydat ~ (P25*exp( (log(1 + exp((S*298.15-hd)/(8.314*298.15))) + 
+  o <- list()
+  o$start<- c(P25 = 10, ha=20000, S=800, hd=258000)
+  o$eunsc <- ydat ~ (P25*exp( (log(1 + exp((S*298.15-hd)/(8.314*298.15))) + 
                                 (ha/(8.314*298.15))) 
-                             - (ha/(8.314*tdat)))) / (1 + exp((S*tdat-hd)/(8.312*tdat)))
+                             - (ha/(8.314*tdat)))) / 
+    (1 + exp((S*tdat-hd)/(8.312*tdat)))
   
   #(b[1]*exp(( log(1+ exp((b[3]*298.15-b[4])/(8.314*298.15))) 
   #+ (b[2]/(8.314*298.15)) 
   #- (b[2]/(8.314*mydata$x)))) / 
   #(1 + exp((b[3]*mydata$x-b[4])/(8.314*mydata$x))))
   
-  o$optx1 = optima(o$start, weeddata, rhsfit2)
-  o2 = nlsLM(o$eunsc, 
+  o$optx1 <- optima(o$start, weeddata, rhsfit2)
+  o2 <- nlsLM(o$eunsc, 
                start=list(P25 = o$optx$P25[1], ha = o$optx$ha[1], S = o$optx$S[1], 
                           hd = o$optx$hd[1]), 
                trace = TRUE)
@@ -132,42 +134,46 @@ eqFitcl2 <- function(tdat, ydat, weeddata)
 getlogistic <- function(x, y)
 {
   
-  weeddata = data.frame(y=y, x=x)
-  f = as.formula(paste('y', '~', 'SSlogis(x, phi1, phi2, phi3)', sep=''))
-  gr = nlsLM(f, data = weeddata)
-  r = nlsResiduals(gr)
-  i = union(which(r$resi2[1:nrow(weeddata),2] > 1), which(r$resi2[1:nrow(weeddata),2] < -1))
+  weeddata <- data.frame(y=y, x=x)
+  f <- as.formula(paste('y', '~', 'SSlogis(x, phi1, phi2, phi3)', sep=''))
+  gr <- nlsLM(f, data = weeddata)
+  r <- nlsResiduals(gr)
+  i <- union(which(r$resi2[1:nrow(weeddata),2] > 1), which(r$resi2[1:nrow(weeddata),2] < -1))
   # plot(weeddata[['x']], weeddata[['y']], xlab = "DAS", ylab = 'ta')
   # lines(weeddata[['x']], as.vector(predict(gr)), col="red",lty=2,lwd=3)
   # text(170, min(log(sub[[trait]]))+1.5, paste(ename, '\n', 'phi1: ', round(alpha[1],2), 
-  #                                             '\n  phi2:', round(alpha[2],2), '\n',  ' phi3:', round(alpha[3],2), sep=''),cex = 0.8)
+  #                                             '\n  phi2:', round(alpha[2],2), 
+  #'\n',  ' phi3:', round(alpha[3],2), sep=''),cex = 0.8)
   # 
   return(i)
 }
 # Equation 1
 eqFit <- function(xp, yp, param)
 {
-  r = list()
+  r <- list()
   ## Remove odd value BUT it results in ood values
-  i = getlogistic(xp, yp)
+  i <- getlogistic(xp, yp)
   
   
-  tdat = xp
-  ydat = yp
-  weeddata = data.frame(y=ydat, x=tdat)
-  r$o1 = eqFitcl1(tdat, ydat, weeddata)
-  r$o2 = eqFitcl2(tdat, ydat, weeddata)
+  tdat <- xp
+  ydat <- yp
+  weeddata <- data.frame(y=ydat, x=tdat)
+  r$o1 <- eqFitcl1(tdat, ydat, weeddata)
+  r$o2 <- eqFitcl2(tdat, ydat, weeddata)
   
   
-  k = min(ydat) + (min(ydat)/2)
-  plot(tdat, ydat, main = paste('Arrhenius equations\' curves, param: ', param, sep=''),
+  k <- min(ydat) + (min(ydat)/2)
+  plot(tdat, ydat, main = paste('Arrhenius equations\' curves, param: ', param, 
+                                sep=''),
        cex=0.8, cex.axis=0.8, cex.lab=0.6)
   lines(tdat, fitted(r$o1), col = 'red', lwd = 2, cex=0.8, cex.axis=0.8)
   lines(tdat, fitted(r$o2), col = 'blue', lwd = 2, cex=0.8, cex.axis=0.8)
-  legend(290,k, legend = c(paste('eq1, cor=',round(cor(tdat, fitted(r$o1)), 3), sep=''), 
-                           paste('eq2, cor=',round(cor(tdat, fitted(r$o2)), 3), sep='')), 
+  legend(290,k, legend = c(paste('eq1, cor=',round(cor(tdat, fitted(r$o1)), 3), 
+                                 sep=''), 
+                           paste('eq2, cor=',round(cor(tdat, fitted(r$o2)), 3), 
+                                 sep='')), 
          col=c('red', 'blue'), lty=1, cex=0.8)
-  r$ydat = ydat
+  r$ydat <- ydat
   return(r)
 }
 
@@ -175,17 +181,17 @@ st <- function(x,y, opt)
 {
   if(opt == '1')
   {
-    mx = max(y);
-    mn=min(y)
-    mm=0
-    start1= c(lo = mm, Pgmax = mx, RD=mn)
+    mx <- max(y);
+    mn<-min(y)
+    mm<-0
+    start1<- c(lo = mm, Pgmax = mx, RD=mn)
   }
   if(opt == '2')
   {  
-    mx = max(y) 
-    mn=min(y)
-    mm=5
-    start1= c(lo = mm, Pgmax = mx, RD=mn)
+    mx <- max(y) 
+    mn<-min(y)
+    mm<-5
+    start1<- c(lo = mm, Pgmax = mx, RD=mn)
   }
   return(start1)
 }
@@ -193,13 +199,13 @@ st <- function(x,y, opt)
 makeFunctions <- function(ydat, tdat)
 {
   
-  elist = list()
-  elist[['1']] = c(eq = ydat ~ ((lo*tdat*Pgmax) / (lo*tdat+Pgmax)) - RD, 
+  elist <- list()
+  elist[['1']] <- c(eq = ydat ~ ((lo*tdat*Pgmax) / (lo*tdat+Pgmax)) - RD, 
                    f=rhs1, qy = "(lo*(Pgmax^2)) / ((lo*tdat+Pgmax)^2)")
   
-  elist[['2']] = c(eq = ydat ~ ((tdat * Pgmax)/(tdat + lo)) - RD, 
+  elist[['2']] <- c(eq = ydat ~ ((tdat * Pgmax)/(tdat + lo)) - RD, 
                    f=rhs2, qy = "(lo*Pgmax) / ((tdat+lo)^2)")
-  elist[['10']] = c(eq = ydat ~ P25*exp((c-ha)/(8.314*tdat)), 
+  elist[['10']] <- c(eq = ydat ~ P25*exp((c-ha)/(8.314*tdat)), 
                    f=rhsfit1, qy = "")
   return(elist)
 }
@@ -207,25 +213,28 @@ makeFunctions <- function(ydat, tdat)
 # Calculate growth parameters
 nlsLMFunction <- function(x,y, tname, spc, tempr, repl, fn)
 {
-  b = c()
-  tdat = x
-  ydat = y
-  elist = makeFunctions(ydat, tdat)
-  weeddata = data.frame(y=ydat, x=tdat)
+  b <- c()
+  tdat <- x
+  ydat <- y
+  elist <- makeFunctions(ydat, tdat)
+  weeddata <- data.frame(y=ydat, x=tdat)
   
   for(n in fn)
   {
-    optx = optima(st(tdat, ydat, n), weeddata, elist[[n]]$f)
+    optx <- optima(st(tdat, ydat, n), weeddata, elist[[n]]$f)
     
-    o = nlsLM(elist[[n]]$eq, 
-                start=list(lo = optx$lo[1], Pgmax = optx$Pgmax[1], RD=optx$RD[1]), trace = F)
-    lo = optx$lo[1]
-    Pgmax = optx$Pgmax[1]
-    RD=optx$RD[1]
-    b = rbind(b, c(eq = n, rep = repl, lo = lo, Pgmax=Pgmax, RD=RD, 
+    o <- nlsLM(elist[[n]]$eq, 
+                start=list(lo = optx$lo[1], Pgmax = optx$Pgmax[1], 
+                           RD=optx$RD[1]), trace = F)
+    lo <- optx$lo[1]
+    Pgmax <- optx$Pgmax[1]
+    RD<-optx$RD[1]
+    b <- rbind(b, c(eq = n, rep = repl, lo = lo, Pgmax=Pgmax, RD=RD, 
                    specie = spc, temperature = tempr))
-    plotCurve(tdat, ydat, fitted(o), n, 'NET PHOTOSYNTHESIS RATE',spc, tempr, repl)
-    plotCurve(tdat, eval(parse(text=elist[[n]]$qy)), eval(parse(text=elist[[n]]$qy)), n, 
+    plotCurve(tdat, ydat, fitted(o), n, 'NET PHOTOSYNTHESIS RATE',spc, tempr, 
+              repl)
+    plotCurve(tdat, eval(parse(text=elist[[n]]$qy)), 
+              eval(parse(text=elist[[n]]$qy)), n, 
               'QUANTUM YIELD', spc, tempr, repl)
   
   }
@@ -235,18 +244,18 @@ nlsLMFunction <- function(x,y, tname, spc, tempr, repl, fn)
 # calculate temperature
 getPar <- function(data, varn)
 {
-  data = data.frame(data)
-  data = data.frame(data, tk = sapply(data[[varn]], function(x) x+273.15))
+  data <- data.frame(data)
+  data <- data.frame(data, tk = sapply(data[[varn]], function(x) x+273.15))
   return(data)
 }
 
-convert2factor = function(data, variable_list)
+convert2factor <- function(data, variable_list)
 {
   
-  copydata = data
+  copydata <- data
   for(v in variable_list)
   {
-    copydata[[v]]  = factor(copydata[[v]])
+    copydata[[v]]  <- factor(copydata[[v]])
   }
   return(copydata)
 }
@@ -254,8 +263,8 @@ convert2factor = function(data, variable_list)
 #Equations to fit curve to temp
 eqFitc <- function(type, vl)
 {
-  v1 = 8.314
-  v2 = 298.15
+  v1 <- 8.314
+  v2 <- 298.15
   if(type == 2)
   {
     return(log(1 + exp((vl[['S']]*v2-vl[['hd']])/(v1*v2))) +
@@ -325,7 +334,8 @@ ArrheniusFit <- function(sdata)
 processCurveParam <- function(b)
 {
   
-  b <- convert2numeric(data.frame(b), c("eq","rep","lo","Pgmax","RD","temperature"))
+  b <- convert2numeric(data.frame(b), c("eq","rep","lo","Pgmax","RD",
+                                        "temperature"))
   b <- getPar(b, 'temperature')
   b <- data.frame(b)
   b <- b[order(b$tk),]
@@ -336,9 +346,13 @@ processCurveParam <- function(b)
 
 calculateEstimates <- function(m, b)
 {
-  b <- data.frame(b, PgmaxAdj = sapply(b$temperature, function(x) eqEstimate(x, m[,'Pgmax'], 'Pgmax')))
-  b <- data.frame(b, loAdj = sapply(b$temperature, function(x) eqEstimate(x, m[,'lo'], 'lo')))
-  b <- data.frame(b, RDAdj = sapply(b$temperature, function(x) eqEstimate(x, m[,'RD'], 'RD')))
+  b <- data.frame(b, PgmaxAdj = sapply(b$temperature, 
+                                       function(x) eqEstimate(x, m[,'Pgmax'], 
+                                                              'Pgmax')))
+  b <- data.frame(b, loAdj = sapply(b$temperature, 
+                                    function(x) eqEstimate(x, m[,'lo'], 'lo')))
+  b <- data.frame(b, RDAdj = sapply(b$temperature, 
+                                    function(x) eqEstimate(x, m[,'RD'], 'RD')))
   return(b)
   
 }
@@ -360,44 +374,57 @@ calculateEstimatesTemp <- function(b)
   
 }
 
+#' Calculate light saturation point
+#' @param b matrix with curve parameters
+#' @param I intensity value
 calculateEstimatesTempIsat <- function(b, I)
 {
   b <- data.frame(b, Isat = sapply(as.numeric(rownames(b)), function(x)
     (b[['RDTemp']][x] * b[['PgmaxTemp']][x] * (I-1)-I* (b[['PgmaxTemp']][x]^2)) /
-      (b[['loTemp']][x] * (b[['PgmaxTemp']][x]*(I-1) + b[['RDTemp']][x]*(I-0.5)))))
+      (b[['loTemp']][x] * (b[['PgmaxTemp']][x]*(I-1) + 
+                             b[['RDTemp']][x]*(I-0.5)))))
   i <- which(colnames(b) == 'Isat')
   colnames(b)[i] <- paste('Isat', (I*100),sep='')
   return(b)
 
 }
 
-
+#' Quantum yield at specific I
+#' @param b matrix with curve parameters
 calculateEstimatesTempQuantYield <- function(b)
 {
   b <- data.frame(b, oIcomp = sapply(as.numeric(rownames(b)), function(x)
-    (b[['loTemp']][x]*(b[['PgmaxTemp']][x]^2)) / ((b[['loTemp']][x] * b[['Icom']][x] + 
-                                                    b[['PgmaxTemp']][x])^2)))
+    (b[['loTemp']][x]*(b[['PgmaxTemp']][x]^2)) / 
+      ((b[['loTemp']][x] * b[['Icom']][x] + b[['PgmaxTemp']][x])^2)))
     return(b)
 }
 
-
+#'Plot NET PHOTOSYNTHESIS RATE
+#' @param v1 curve parameters
+#' @param sub subset
+#' @param t temperature
 plotSelNetTemp <- function(vl, sub, t)
 {
-  k <-((vl[['loTemp']] *  sub$I * vl[['PgmaxTemp']]) / (vl[['loTemp']] *  sub$I + vl[['PgmaxTemp']])) 
-  - vl[['RDTemp']]
+  k <-((vl[['loTemp']] *  sub$I * vl[['PgmaxTemp']]) / (vl[['loTemp']] * 
+       sub$I + vl[['PgmaxTemp']])) - vl[['RDTemp']]
   plot(sub$I, k, xlab='PHOTOSYNTHETIC PHOTON FLUX DENSITY [mmol (photons) m-2 s-1]
-', ylab='NET PHOTOSYNTHESIS RATE', type='l',col='red', main = paste('temperature = ', t, sep =''),
+', ylab='NET PHOTOSYNTHESIS RATE', type='l',col='red', 
+       main = paste('temperature = ', t, sep =''),
        cex.axis=0.8, cex.lab=0.6)
   
 }
 
-
+#' Plot QUANTUM YIELD
+#' @param v1 curve parameters
+#' @param sub subset
+#' @param t temperature
 plotSelQuaTemp <- function(vl, sub, t)
 {
   k <-(vl[['loTemp']] *  (vl[['PgmaxTemp']] ^2)) / 
-        ((vl[['loTemp']] *  sub$I * vl[['PgmaxTemp']])^2)
+      ((vl[['loTemp']] *  sub$I * vl[['PgmaxTemp']])^2)
   plot(sub$I, k, xlab='PHOTOSYNTHETIC PHOTON FLUX DENSITY [mmol (photons) m-2 s-1]
-', ylab='QUANTUM YIELD', type='l', col='red', main = paste('temperature = ', t, sep =''), 
+', ylab='QUANTUM YIELD', type='l', col='red', main = paste('temperature = ', 
+                                                           t, sep =''), 
        cex.axis=0.8, cex.lab=0.6)
   
 }
@@ -422,32 +449,42 @@ for(sp in unique(r$specie)[1])
       sub2 <- sub1[which(sub1$t == temp),]
       tname<- paste(unique(as.character(sub2$specie)), 'Temp:', unique(sub2$t), 
                    'rep: ', unique(sub2$r), sep=' ')
-      b <- rbind(b, nlsLMFunction(sub2$I, sub2$Pn, tname, unique(as.character(sub2$specie)), 
+      b <- rbind(b, nlsLMFunction(sub2$I, sub2$Pn, tname, 
+                                  unique(as.character(sub2$specie)), 
                                  unique(sub2$t), unique(sub2$r), c('1') ))
     }
   }
 }
 
 
-break
+
 # Transform '-'
 b <- processCurveParam(b)
 
-# Calculate calculate parameters for RD, lo, and Pgmax from b,from all reps 
+#' Calculate calculate parameters for RD, lo, and Pgmax from b,from all reps 
+#'TODO look for confidence intervals for Pgmax, lo and RD's parameters (P25
+#' and c)
 m <- ArrheniusFit(b)
 
-# b <- calculateEstimates(m, b)
-# b <- calculateEstimatesTemp(b)
-# b <- calculateEstimatesTempIsat(b, 0.50)
-# b <- calculateEstimatesTempIsat(b, 0.85)
-# b <- calculateEstimatesTempIsat(b, 0.90)
-# b <- calculateEstimatesTempIsat(b, 0.95)
-# b <- calculateEstimatesTempQuantYield(b)
+
+
+b <- calculateEstimates(m, b)
+b <- calculateEstimatesTemp(b)
+
+# Calculate light saturation point
+b <- calculateEstimatesTempIsat(b, 0.50)
+b <- calculateEstimatesTempIsat(b, 0.85)
+b <- calculateEstimatesTempIsat(b, 0.90)
+b <- calculateEstimatesTempIsat(b, 0.95)
+
+#'Quantum yield at specific I
+b <- calculateEstimatesTempQuantYield(b)
+
 # 
-# 
-# plotSelNetTemp(b[1,], sub2, 25)
-# plotSelQuaTemp(b[1,], sub2, 25)
-# dev.off()
+# Plot NET PHOTOSYNTHESIS RATE
+plotSelNetTemp(b[1,], sub2, 25)
+plotSelQuaTemp(b[1,], sub2, 25)
+dev.off()
 # break()
 # 
 # write.table(b, file='results_curvefitting.csv', sep=',')
