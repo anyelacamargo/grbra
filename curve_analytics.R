@@ -5,7 +5,7 @@ library(ggplot2)
 library(nlstools)
 library(nlme)
 
-source('../senescence_disease/generic.R')
+source('generic.R')
 
 # [64-bit] C:\Program Files\R\R-3.3.1
 
