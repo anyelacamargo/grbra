@@ -438,7 +438,7 @@ b <- c()
 
 pdf('curves.pdf')
 par(mfrow=c(2,2))
-for(sp in unique(r$specie)[1])
+for(sp in unique(r$specie))
 {
   sub <- r[which(r$specie == sp),]
   for(rep in unique(sub$r))
@@ -457,7 +457,7 @@ for(sp in unique(r$specie)[1])
 }
 
 
-
+break
 # Transform '-'
 b <- processCurveParam(b)
 
