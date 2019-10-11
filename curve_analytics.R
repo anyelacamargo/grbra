@@ -96,15 +96,21 @@ searchOutlier <- function(data)
 }
 
 
-eqFitcl1 <- function(tdat, ydat, weeddata)
+eqFitcl1 <- function(tdat, ydat, subdata)
 {
   o <- list()
-  weeddata <- data.frame(y=ydat, x=tdat)
+  
+  # Get starting values
+  #cc <- coef(lm(log(ydat)~tdat,data=subdata)) 
+  #cc <- c(cc)
+  #names(cc) <- c("P25", "ha") 
+  
   o$start<- c(P25 = 0, ha=38000)
   o$eunsc <- ydat ~ P25*exp((ha/(8.314*298.15)) - ha/(8.314*tdat))
-  o$optx1 <- optima(o$start, weeddata, rhsfit1)
-  o1<- nlsLM(o$eunsc, 
+  o$optx1 <- optima(o$start, subdata, rhsfit1)
+  o1 <- nlsLM(o$eunsc, 
               start=list(P25 = o$optx1$P25[1], ha = o$optx1$ha[1]), trace = TRUE)
+  
   return(o1)
 }
 
@@ -130,15 +136,22 @@ eqFitcl2 <- function(tdat, ydat, weeddata)
   return(o2)
 }
 
-
+# Remove outliers
 getlogistic <- function(x, y)
 {
   
-  weeddata <- data.frame(y=y, x=x)
+  subdata <- data.frame(y=y, x=x)
   f <- as.formula(paste('y', '~', 'SSlogis(x, phi1, phi2, phi3)', sep=''))
-  gr <- nlsLM(f, data = weeddata)
+  
+  # Get starting values
+  cc <- coef(lm(log(y)~x,data=subdata)) 
+  cc <- c(cc, 1)
+  names(cc) <- c("phi1", "phi2", "phi3") 
+  #nls(log(y)~b1+(b2/b3)*(x^b3-1),data = subdata, start = cc,trace = TRUE) 
+  
+  gr <- nlsLM(f, data = subdata, start = cc)
   r <- nlsResiduals(gr)
-  i <- union(which(r$resi2[1:nrow(weeddata),2] > 1), which(r$resi2[1:nrow(weeddata),2] < -1))
+  i <- union(which(r$resi2[1:nrow(subdata),2] > 1), which(r$resi2[1:nrow(subdata),2] < -1))
   # plot(weeddata[['x']], weeddata[['y']], xlab = "DAS", ylab = 'ta')
   # lines(weeddata[['x']], as.vector(predict(gr)), col="red",lty=2,lwd=3)
   # text(170, min(log(sub[[trait]]))+1.5, paste(ename, '\n', 'phi1: ', round(alpha[1],2), 
@@ -153,29 +166,34 @@ getlogistic <- function(x, y)
 #' @param xp is the time/space relates parameter (temp)
 #' @param yp the responde variable
 #' @param param param for which curve if fitted
-eqFit <- function(xp, yp, param)
+eqFit <- function(tdat, ydat, param)
 {
   r <- list()
   ## Remove odd value BUT it results in ood values
-  i <- getlogistic(xp, yp)
-  tdat <- xp
-  ydat <- yp
-  weeddata <- data.frame(y=ydat, x=tdat)
-  r$o1 <- eqFitcl1(tdat, ydat, weeddata)
-  r$o2 <- eqFitcl2(tdat, ydat, weeddata)
+  i <- getlogistic(tdat, ydat)
+ 
+  subdata <- data.frame(y=ydat, x=tdat)
+  if(param == 'lo' |  param == 'RD' ){
+    eqt <- 1
+    r$oo <- eqFitcl1(tdat, ydat, subdata)
+  }
+  else {
+    eqt <- 2
+    r$oo <- eqFitcl2(tdat, ydat, subdata)
   
-  
+  }
+  print( r$oo)
   k <- min(ydat) + (min(ydat)/2)
   plot(tdat, ydat, main = paste('Arrhenius equations\' curves, param: ', param, 
                                 sep=''),
        cex=0.8, cex.axis=0.8, cex.lab=0.6)
-  lines(tdat, fitted(r$o1), col = 'red', lwd = 2, cex=0.8, cex.axis=0.8)
-  lines(tdat, fitted(r$o2), col = 'blue', lwd = 2, cex=0.8, cex.axis=0.8)
-  legend(290,k, legend = c(paste('eq1, cor=',round(cor(tdat, fitted(r$o1)), 3), 
-                                 sep=''), 
-                           paste('eq2, cor=',round(cor(tdat, fitted(r$o2)), 3), 
+  lines(tdat, fitted(r$oo), col = 'red', lwd = 2, cex=0.8, cex.axis=0.8)
+  #lines(tdat, fitted(r$o2), col = 'blue', lwd = 2, cex=0.8, cex.axis=0.8)
+  legend(290,k, legend = c(paste('eq:', eqt, ' cor=',round(cor(tdat, fitted(r$oo)), 3), 
                                  sep='')), 
-         col=c('red', 'blue'), lty=1, cex=0.8)
+                           #paste('eq2, cor=',round(cor(tdat, fitted(r$o2)), 3), 
+                            #     sep='')), 
+         col=c('red'), lty=1, cex=0.8)
   r$ydat <- ydat
   return(r)
 }
@@ -308,23 +326,36 @@ ArrheniusFit <- function(sdata)
   x <- sdata[['tk']]
   y <- sdata[['Pgmax']]
   m <- eqFit(x,y, 'Pgmax')
-  m1 <- data.frame(summary(m$o2)$parameters)
-  print('Finished Pgmax')
+  m1 <- data.frame(Estimate = coef(m$oo))
+  print(paste('Finished Pgmax'))
+  rm(m)
   
   # lo
-  x <- sdata$tk
+  x <- sdata[['tk']]
   y <- sdata$lo
   m <- eqFit(x[-5],y[-5], 'lo')
-  m2 <- data.frame(summary(m$o1)$parameters)
-  print('Finished lo')
-  
+  m2 <- data.frame(Estimate = coef(m$oo))
+  for(p in c('P25', 'ha', 'S', 'hd')){
+    if(is.na(match(p, rownames(m2)))) {  
+      m2 <- rbind(m2, K=NA)
+      rownames(m2)[which(rownames(m2) == 'K')] = p
+    }
+  }
+  print(paste('Finished lo'))
+  rm(m)
   
   # RD
-  x <- sdata$tk
+  x <- sdata[['tk']]
   y <- sdata$RD
   m <- eqFit(x,y, 'RD')
-  m3 <- data.frame(summary(m$o2)$parameters)
-  print('Finished RD')
+  m3 <- data.frame(Estimate = coef(m$oo))
+  for(p in c('P25', 'ha', 'S', 'hd')){
+    if(is.na(match(p, rownames(m3)))) {  
+      m3 <- rbind(m3, K=NA)
+      rownames(m3)[which(rownames(m3) == 'K')] = p
+    }
+  }
+  print(paste('Finished RD'))
   
   
   mf <- cbind(Pgmax=m1$Estimate, lo=m2$Estimate, RD=m3$Estimate)
@@ -439,7 +470,7 @@ r <- r[complete.cases(r),]
 row.names(r) <- 1:nrow(r)
 b <- c()
 
-
+# 
 pdf('curves.pdf')
 par(mfrow=c(2,2))
 for(sp in unique(r$specie))
@@ -451,26 +482,47 @@ for(sp in unique(r$specie))
     for(temp in unique(sub1$t))
     {
       sub2 <- sub1[which(sub1$t == temp),]
-      tname<- paste(unique(as.character(sub2$specie)), 'Temp:', unique(sub2$t), 
+      tname<- paste(unique(as.character(sub2$specie)), 'Temp:', unique(sub2$t),
                    'rep: ', unique(sub2$r), sep=' ')
-      b <- rbind(b, nlsLMFunction(sub2$I, sub2$Pn, tname, 
-                                  unique(as.character(sub2$specie)), 
+      b <- rbind(b, nlsLMFunction(sub2$I, sub2$Pn, tname,
+                                  unique(as.character(sub2$specie)),
                                  unique(sub2$t), unique(sub2$r), c('1') ))
     }
   }
 }
 
 
-break
+
 # Transform '-'
 b <- processCurveParam(b)
 
-#' Calculate calculate parameters for RD, lo, and Pgmax from b,from all reps 
+#save(b, file = 'b.dat')
+#load('b.dat')
+
+
+#' Calculate calculate parameters for RD, lo, and Pgmax from b for each species 
+#' and rep 
 #'TODO look for confidence intervals for Pgmax, lo and RD's parameters (P25
 #' and c)
-m <- ArrheniusFit(b)
+#' 
+#' 
+# Run loop for both species and one rep
+m_all <- data.frame()
+
+par(mfrow=c(2,2))
+for(sp in unique(b$specie)){
+  for(rept in b$rep[1]){
+  print(paste(sp, rept))
+   sub <- subset(b, specie == sp & rep == rept)
+   
+   m <- ArrheniusFit(sub)
+   m <- data.frame(rep = rept, species = sp, m)
+   m_all <- rbind(m_all, m)
+  }
+}
 
 
+break
 
 b <- calculateEstimates(m, b)
 b <- calculateEstimatesTemp(b)
