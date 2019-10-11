@@ -468,42 +468,48 @@ r <- read.csv('merge_data.csv', header=TRUE, sep=',')
 r$I <- as.numeric(as.character(r$I))
 r <- r[complete.cases(r),]
 row.names(r) <- 1:nrow(r)
-b <- c()
 
-# 
-pdf('curves.pdf')
-par(mfrow=c(2,2))
-for(sp in unique(r$specie))
-{
-  sub <- r[which(r$specie == sp),]
-  for(rep in unique(sub$r))
+if(!file.exists('b.dat')){
+  
+  b <- c()
+  
+  # 
+  pdf('curves.pdf')
+  par(mfrow=c(2,2))
+  for(sp in unique(r$specie))
   {
-    sub1 <- sub[which(sub$r == rep),]
-    for(temp in unique(sub1$t))
+    sub <- r[which(r$specie == sp),]
+    for(rep in unique(sub$r))
     {
-      sub2 <- sub1[which(sub1$t == temp),]
-      tname<- paste(unique(as.character(sub2$specie)), 'Temp:', unique(sub2$t),
-                   'rep: ', unique(sub2$r), sep=' ')
-      b <- rbind(b, nlsLMFunction(sub2$I, sub2$Pn, tname,
-                                  unique(as.character(sub2$specie)),
-                                 unique(sub2$t), unique(sub2$r), c('1') ))
+      sub1 <- sub[which(sub$r == rep),]
+      for(temp in unique(sub1$t))
+      {
+        sub2 <- sub1[which(sub1$t == temp),]
+        tname<- paste(unique(as.character(sub2$specie)), 'Temp:', unique(sub2$t),
+                     'rep: ', unique(sub2$r), sep=' ')
+        b <- rbind(b, nlsLMFunction(sub2$I, sub2$Pn, tname,
+                                    unique(as.character(sub2$specie)),
+                                   unique(sub2$t), unique(sub2$r), c('1') ))
+      }
     }
   }
-}
-
+  
 
 
 # Transform '-'
-b <- processCurveParam(b)
-
+  b <- processCurveParam(b)
+} else {
+  
+  load('b.dat')
+}
 #save(b, file = 'b.dat')
-#load('b.dat')
+#
 
 
-#' Calculate calculate parameters for RD, lo, and Pgmax from b for each species 
-#' and rep 
-#'TODO look for confidence intervals for Pgmax, lo and RD's parameters (P25
-#' and c)
+#' Calculate curve parameters using ArrheniusFit for RD, lo, and Pgmax. Curve is 
+#' fitted using y = Pgmax (or lo or RD in b) and  x = tk (in b too). Each fit 
+#' returns fitted paramers (e.g. P25, h, S )
+#' 
 #' 
 #' 
 # Run loop for both species and one rep
