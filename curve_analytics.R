@@ -147,14 +147,17 @@ getlogistic <- function(x, y)
   # 
   return(i)
 }
-# Equation 1
+
+
+#' Fit ArrheniusFit Curve1 and Curve 2 for a given parameter
+#' @param xp is the time/space relates parameter (temp)
+#' @param yp the responde variable
+#' @param param param for which curve if fitted
 eqFit <- function(xp, yp, param)
 {
   r <- list()
   ## Remove odd value BUT it results in ood values
   i <- getlogistic(xp, yp)
-  
-  
   tdat <- xp
   ydat <- yp
   weeddata <- data.frame(y=ydat, x=tdat)
@@ -297,7 +300,8 @@ eqEstimate <- function(t, vl, tp)
   
 }
 
-# ArrheniusFit Calculations
+#' ArrheniusFit Calculations
+#' @param sdata curve parameters to calculate ArrheniusFit
 ArrheniusFit <- function(sdata)
 {
   # Pgmax
